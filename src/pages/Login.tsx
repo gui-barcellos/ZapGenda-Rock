@@ -22,10 +22,23 @@ const Login = () => {
 
   useEffect(() => {
     const hash = window.location.hash || "";
+
     if (hash.includes("type=recovery") && hash.includes("access_token")) {
       navigate(`/auth/reset${hash}`, { replace: true });
+      return;
     }
-  }, [navigate]);
+
+    if (hash.includes("error=")) {
+      const params = new URLSearchParams(hash.replace(/^#/, ""));
+      const description = params.get("error_description") || "Link invalido ou expirado.";
+      toast({
+        title: "Link expirado",
+        description: decodeURIComponent(description.replace(/\+/g, " ")),
+        variant: "destructive",
+      });
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [navigate, toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
