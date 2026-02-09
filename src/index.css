@@ -1,0 +1,197 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  /* Layout Full Height */
+  html, body {
+    height: 100vh;
+  }
+
+  #root {
+    height: 100vh;
+  }
+
+  :root {
+    --background: 210 11% 96%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 220 13% 97%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 13% 95%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.5rem;
+
+    --sidebar-background: 215 30% 12%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 210 80% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 25% 18%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 215 25% 18%;
+    --sidebar-ring: 210 80% 48%;
+
+    --header-background: 0 0% 100%;
+    --header-border: 210 20% 90%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(210 80% 48%), hsl(210 90% 58%));
+    --gradient-accent: linear-gradient(135deg, hsl(158 70% 45%), hsl(158 80% 55%));
+    
+    --shadow-sm: 0 1px 2px 0 hsl(215 25% 15% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(215 25% 15% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(215 25% 15% / 0.1);
+
+    --chart-1: 142 76% 36%;
+    --chart-2: 47 92% 50%;
+    --chart-3: 9 84% 61%;
+    --chart-4: 220 9% 46%;
+    --chart-5: 215 21% 11%;
+  }
+
+  .dark {
+    --background: 215 30% 8%;
+    --foreground: 210 20% 95%;
+
+    --card: 215 28% 14%;
+    --card-foreground: 210 20% 95%;
+
+    --popover: 215 28% 14%;
+    --popover-foreground: 210 20% 95%;
+
+    --primary: 210 85% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 215 25% 18%;
+    --secondary-foreground: 210 20% 95%;
+
+    --muted: 215 25% 20%;
+    --muted-foreground: 210 15% 65%;
+
+    --accent: 215 25% 20%;
+    --accent-foreground: 210 20% 90%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 25% 20%;
+    --input: 215 25% 20%;
+    --ring: 210 85% 55%;
+
+    --sidebar-background: 215 32% 10%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 210 85% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 28% 16%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 215 28% 16%;
+    --sidebar-ring: 210 85% 55%;
+
+    --header-background: 215 28% 12%;
+    --header-border: 215 25% 20%;
+
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .hover-scale {
+    @apply transition-smooth hover:scale-105;
+  }
+}
+
+@layer components {
+  /* Cards compactos */
+  .card-compact .card-header {
+    @apply p-3;
+  }
+
+  .card-compact .card-content {
+    @apply p-3 pt-0;
+  }
+
+  /* Tabelas com linhas mais espaçadas */
+  .table-row td {
+    @apply py-4;
+  }
+
+  /* Padrão riscado para slots indisponíveis */
+  .unavailable-slot {
+    background-color: #ffffff;
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 8px,
+      #e5e7eb 8px,
+      #e5e7eb 9px
+    );
+  }
+
+  /* Background pattern sutil para área de chat */
+  .chat-area-pattern {
+    background-color: #e5ddd5;
+    background-image: 
+      repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        rgba(255, 255, 255, 0.03) 10px,
+        rgba(255, 255, 255, 0.03) 20px
+      );
+  }
+
+  /* Scrollbar customizada */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.3);
+  }
+}

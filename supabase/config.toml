@@ -1,0 +1,102 @@
+project_id = "jiuzziiwigrjpavqopli"
+
+[functions.chat-ai-responses]
+verify_jwt = false
+
+[functions.verify-whatsapp-connections]
+verify_jwt = false
+
+[functions.send-scheduled-messages]
+verify_jwt = false
+
+[functions.audio-transcription]
+verify_jwt = false
+
+[functions.process-image]
+verify_jwt = false
+
+[functions.zapi-validate-connection]
+verify_jwt = false
+
+[functions.zapi-qr-code]
+verify_jwt = true
+
+[functions.zapi-phone-code]
+verify_jwt = true
+
+[functions.zapi-send-message]
+verify_jwt = true
+
+[functions.zapi-webhook]
+verify_jwt = false
+
+[functions.zapi-fetch-profile-picture]
+verify_jwt = false
+
+[functions.reset-monthly-tokens]
+verify_jwt = false
+
+[functions.send-user-invite]
+verify_jwt = false
+
+[functions.send-admin-password-reset]
+verify_jwt = true
+
+[functions.send-auth-email]
+verify_jwt = false
+
+[functions.create-company]
+verify_jwt = false
+
+[functions.delete-company]
+verify_jwt = false
+
+[functions.create-checkout-session]
+verify_jwt = true
+
+[functions.stripe-webhooks]
+verify_jwt = false
+
+[functions.sync-stripe-products]
+verify_jwt = true
+
+[functions.create-subscription]
+verify_jwt = true
+
+[functions.affiliate-stripe-onboarding]
+verify_jwt = true
+
+[functions.affiliate-stripe-refresh]
+verify_jwt = true
+
+[functions.check-availability]
+verify_jwt = false
+
+[functions.generate-faq-summary]
+verify_jwt = false
+
+[functions.search-faqs]
+verify_jwt = false
+
+[functions.generate-affiliate-commissions]
+verify_jwt = false
+
+[functions.generate-affiliate-payouts]
+verify_jwt = false
+
+[functions.affiliate-payout-pay]
+verify_jwt = true
+
+[functions.auto-mark-no-show]
+verify_jwt = false
+
+[functions.expire-pending-conversations]
+verify_jwt = false
+
+[functions.suspend-overdue-companies]
+verify_jwt = false
+
+# Cron job para reset mensal de tokens (dia 1º de cada mês às 00:00 em São Paulo / 03:00 UTC)
+
+# Scheduler blocks removed to allow CLI parsing in current version.
+# Cron schedules are tracked in docs/spec and can be re-applied later.
