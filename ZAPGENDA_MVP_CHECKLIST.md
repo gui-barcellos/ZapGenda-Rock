@@ -21,7 +21,7 @@
 - [ ] Dashboard SuperUser: listar empresas, filtros, status e acoes (reenviar link senha).
 - [ ] Painel afiliado (self + super) com clientes e comissoes.
 - [ ] Logs auditaveis para acoes criticas (cancelar, reagendar, editar).
-- [ ] Documentacao de infraestrutura e supabase atualizada.
+- [x] Documentacao de infraestrutura e supabase atualizada.
 
 ## P3 - Polimento e preparacao
 - [ ] Internacionalizacao base (pt como padrao, estrutura pronta para outros idiomas).
