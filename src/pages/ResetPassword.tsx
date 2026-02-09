@@ -15,6 +15,7 @@ const ResetPassword = () => {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const hashParams = useMemo(() => {
     const hash = window.location.hash.replace(/^#/, "");
@@ -45,6 +46,8 @@ const ResetPassword = () => {
         return;
       }
 
+      const { data } = await supabase.auth.getUser();
+      setUserEmail(data.user?.email ?? null);
       setSessionReady(true);
     };
 
@@ -112,6 +115,16 @@ const ResetPassword = () => {
 
           {sessionReady && (
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={userEmail || ""}
+                  readOnly
+                  disabled
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Nova senha</Label>
                 <PasswordInput
