@@ -20,7 +20,7 @@ export const useAIChat = () => {
       contactId: string;
       conversationId?: string;
     }) => {
-      const { data, error } = await supabase.functions.invoke("chat-ai", {
+      const { data, error } = await supabase.functions.invoke("chat-ai-responses", {
         body: { message, companyId, contactId, conversationId },
       });
 

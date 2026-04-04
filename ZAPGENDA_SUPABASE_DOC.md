@@ -155,9 +155,11 @@ All functions are deployed to the project.
 ---
 
 ## 7) Scheduler (Cron Jobs)
-Defined in `supabase/config.toml` (edge runtime scheduler blocks).
+**Current repo reality:** `supabase/config.toml` no longer contains active scheduler blocks.
 
-Current scheduled jobs:
+The file currently states that scheduler blocks were removed to keep CLI parsing compatible, so the schedules below are **intended/expected jobs**, not source-of-truth declarations currently enforced by that file.
+
+Expected scheduled jobs:
 - `reset-monthly-tokens` (monthly)
 - `verify-whatsapp-connections` (every 5 min)
 - `auto-mark-no-show` (every 30 min)
@@ -167,7 +169,8 @@ Current scheduled jobs:
 - `generate-affiliate-payouts` (monthly)
 - `suspend-overdue-companies` (daily)
 
-Note: Scheduler must be enabled in Supabase Dashboard for production.
+Operational note:
+- Production scheduler state must be confirmed in Supabase Dashboard (or reapplied by the chosen deployment path) because `config.toml` is not currently expressing the active cron configuration.
 
 ---
 
