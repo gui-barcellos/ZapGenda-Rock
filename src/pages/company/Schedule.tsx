@@ -4,6 +4,7 @@ import { useAppointments, useUpdateAppointment } from "@/hooks/useAppointments";
 import { useProfessionals } from "@/hooks/useProfessionals";
 import { useSchedulingTags } from "@/hooks/useSchedulingTags";
 import { useCompanyData } from "@/hooks/useCompanyData";
+import { useServices } from "@/hooks/useServices";
 import { useAvailability } from "@/hooks/useAvailability";
 import { WeekScheduleGrid } from "@/components/company/WeekScheduleGrid";
 import { ScheduleSidebar } from "@/components/company/ScheduleSidebar";
@@ -12,10 +13,13 @@ import AppointmentDetailsDialog from "@/components/company/AppointmentDetailsDia
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { OnboardingChecklistCard } from "@/components/company/OnboardingChecklistCard";
+import { SetupGuideCard } from "@/components/company/SetupGuideCard";
+import { useConnectedWhatsApp } from "@/hooks/useConnectedWhatsApp";
 import { format, addMinutes, startOfWeek, endOfWeek, addWeeks, subWeeks } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertCircle, CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function Schedule() {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -29,7 +33,9 @@ export default function Schedule() {
   const { professionals = [] } = useProfessionals();
   const { data: appointments = [], isLoading: appointmentsLoading } = useAppointments();
   const { data: schedulingTags = [], isLoading: tagsLoading } = useSchedulingTags();
+  const { services = [] } = useServices();
   const { companyData } = useCompanyData();
+  const { data: connectedWhatsApp } = useConnectedWhatsApp(companyData?.id ?? null);
   const { availability: professionalAvailability = [] } = useAvailability(selectedProfessionalId);
   const updateAppointment = useUpdateAppointment();
 
@@ -145,6 +151,13 @@ export default function Schedule() {
     }));
   }, [professionalAvailability]);
 
+  const activeProfessionalsCount = professionals.filter((professional) => professional.is_active).length;
+  const activeServicesCount = services.filter((service) => service.is_active).length;
+  const hasBusinessHours = Array.isArray(companyData?.business_hours)
+    && companyData.business_hours.some((slot) => slot.is_active && slot.start && slot.end);
+  const needsSetup = activeProfessionalsCount === 0 || activeServicesCount === 0 || !hasBusinessHours;
+  const hasAppointments = appointments.length > 0;
+
   return (
     <CompanyLayout>
       <div className="flex">
@@ -164,6 +177,7 @@ export default function Schedule() {
             setSelectedAppointment(apt);
             setDetailsDialogOpen(true);
           }}
+          createDisabled={needsSetup}
         />
 
         <div className="flex-1 bg-card">
@@ -210,6 +224,77 @@ export default function Schedule() {
                   <Skeleton className="h-12 w-full" />
                   <Skeleton className="h-64 w-full" />
                 </div>
+              </div>
+            ) : needsSetup ? (
+              <div className="space-y-4">
+                <Card className="border-dashed shadow-sm">
+                  <div className="flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-lg font-semibold">
+                        <AlertCircle className="h-5 w-5 text-amber-600" />
+                        Termine a configuração inicial da agenda
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Antes de abrir a grade semanal, a clínica precisa ter pelo menos um profissional ativo,
+                        um serviço ativo e horários configurados.
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                <OnboardingChecklistCard
+                  professionalsCount={activeProfessionalsCount}
+                  activeServicesCount={activeServicesCount}
+                  hasBusinessHours={hasBusinessHours}
+                  hasWhatsAppConnected={Boolean(connectedWhatsApp?.isConnected)}
+                />
+              </div>
+            ) : !hasAppointments ? (
+              <div className="space-y-4">
+                <SetupGuideCard
+                  title="Sua agenda está pronta. Falta só o primeiro agendamento."
+                  description="A configuração básica já foi concluída. Agora vale registrar o primeiro horário para a clínica sair do zero e validar o fluxo completo."
+                  badge="Próximo passo"
+                  steps={[
+                    {
+                      title: "Crie um agendamento manual de teste",
+                      description: "Use o botão AGENDAR ou clique em um horário livre na grade semanal.",
+                    },
+                    {
+                      title: "Confira serviço e profissional",
+                      description: "Garanta que o serviço esteja vinculado a um profissional ativo.",
+                    },
+                    {
+                      title: "Depois conecte o WhatsApp",
+                      description: "Com a agenda validada, a operação fica pronta para automações e atendimento em tempo real.",
+                    },
+                  ]}
+                  actions={[
+                    {
+                      label: "Criar primeiro agendamento",
+                      onClick: () => {
+                        setDefaultSlot({ professional_id: selectedProfessionalId });
+                        setQuickAppointmentOpen(true);
+                      },
+                    },
+                    { label: "Revisar serviços", href: "/company/settings/services", variant: "outline" },
+                    { label: "Conectar WhatsApp", href: "/company/settings/whatsapp", variant: "outline" },
+                  ]}
+                />
+
+                <Card className="shadow-lg">
+                  <WeekScheduleGrid
+                    selectedDate={selectedDate}
+                    selectedProfessionalId={selectedProfessionalId}
+                    appointments={appointments}
+                    businessHours={businessHoursForGrid}
+                    professionalAvailability={professionalAvailabilityForGrid}
+                    schedulingTags={schedulingTags}
+                    onAppointmentUpdate={handleAppointmentUpdate}
+                    onSlotClick={handleSlotSelect}
+                    onAppointmentClick={handleAppointmentClick}
+                  />
+                </Card>
               </div>
             ) : (
               <Card className="shadow-lg">

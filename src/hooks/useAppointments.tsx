@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { format, parseISO, addMinutes } from "date-fns";
+import { format, addMinutes } from "date-fns";
 import { validateAppointmentDate } from "@/lib/scheduling-validation";
 import { timeToMinutes, getLocalWeekdayFromISO } from "@/lib/time-utils";
 
@@ -22,11 +22,51 @@ export interface Appointment {
   updated_at: string;
 }
 
+interface AppointmentAuditPayload {
+  [key: string]: unknown;
+}
+
+interface SchedulingRulesRow {
+  min_advance_hours_manual: number | null;
+  max_advance_days_manual: number | null;
+  scheduling_mode: "rolling" | "monthly" | null;
+  open_next_month_on_day: number | null;
+  months_ahead_visible: number | null;
+  opening_type: "date_range" | "week_defined" | null;
+  opening_start_day: number | null;
+  opening_end_day: number | null;
+  opening_week: "first" | "second" | "third" | "fourth" | "last" | null;
+}
+
+interface AvailabilitySlot {
+  start_time: string;
+  end_time: string;
+  is_active: boolean;
+}
+
+interface BlockedSlot {
+  reason: string | null;
+}
+
+interface AppointmentMutationInput {
+  professional_id: string;
+  service_id: string;
+  contact_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  status?: Appointment["status"];
+  notes?: string;
+}
+
+const overlapsRangeFilter = (startTime: string, endTime: string) =>
+  `and(start_time.lte.${startTime},end_time.gt.${startTime}),and(start_time.lt.${endTime},end_time.gte.${endTime})`;
+
 const logAudit = async (
   action: string,
   companyId: string,
   entityId: string,
-  payloadAfter?: any,
+  payloadAfter?: AppointmentAuditPayload,
   reason?: string
 ) => {
   try {
@@ -45,6 +85,192 @@ const logAudit = async (
   } catch {
     // Audit log is non-blocking
   }
+};
+
+const getCurrentCompanyId = async () => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("company_id")
+    .eq("id", user?.id)
+    .single();
+
+  if (!profile?.company_id) {
+    throw new Error("Empresa não encontrada");
+  }
+
+  return profile.company_id;
+};
+
+const validateSchedulingRules = async (companyId: string, input: AppointmentMutationInput) => {
+  const { data: schedulingRules } = await supabase
+    .from("company_settings")
+    .select(
+      "min_advance_hours_manual, max_advance_days_manual, scheduling_mode, open_next_month_on_day, months_ahead_visible, opening_type, opening_start_day, opening_end_day, opening_week"
+    )
+    .eq("company_id", companyId)
+    .single<SchedulingRulesRow>();
+
+  if (!schedulingRules) return;
+
+  const appointmentDateTime = new Date(`${input.date}T${input.start_time}`);
+  const validation = validateAppointmentDate(
+    appointmentDateTime,
+    {
+      ...schedulingRules,
+      scheduling_mode: schedulingRules.scheduling_mode || "rolling",
+      min_advance_hours: schedulingRules.min_advance_hours_manual ?? 0,
+      max_advance_days: schedulingRules.max_advance_days_manual ?? 0,
+      min_advance_hours_ai: 0,
+      max_advance_days_ai: 0,
+      min_advance_hours_manual: schedulingRules.min_advance_hours_manual ?? 0,
+      max_advance_days_manual: schedulingRules.max_advance_days_manual ?? 0,
+      open_next_month_on_day: schedulingRules.open_next_month_on_day ?? 1,
+      months_ahead_visible: schedulingRules.months_ahead_visible ?? 1,
+      opening_type: schedulingRules.opening_type || "date_range",
+      opening_start_day: schedulingRules.opening_start_day ?? 1,
+      opening_end_day: schedulingRules.opening_end_day ?? 5,
+      opening_week: schedulingRules.opening_week,
+      auto_mark_no_show_enabled: false,
+      auto_mark_no_show_hours: 0,
+    },
+    false
+  );
+
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+};
+
+const validateEntityAvailability = async (companyId: string, input: AppointmentMutationInput, appointmentId?: string) => {
+  const { data: service } = await supabase
+    .from("services")
+    .select("id, is_active")
+    .eq("id", input.service_id)
+    .single<{ id: string; is_active: boolean }>();
+
+  if (!service?.is_active) {
+    throw new Error("Este serviço não está disponível");
+  }
+
+  const { data: professional } = await supabase
+    .from("professionals")
+    .select("id, is_active")
+    .eq("id", input.professional_id)
+    .single<{ id: string; is_active: boolean }>();
+
+  if (!professional?.is_active) {
+    throw new Error("Este profissional não está disponível");
+  }
+
+  const { data: link } = await supabase
+    .from("service_professionals")
+    .select("service_id, professional_id")
+    .eq("company_id", companyId)
+    .eq("service_id", input.service_id)
+    .eq("professional_id", input.professional_id)
+    .maybeSingle<{ service_id: string; professional_id: string }>();
+
+  if (!link) {
+    throw new Error("Este profissional não está vinculado a este serviço");
+  }
+
+  const dayOfWeek = getLocalWeekdayFromISO(input.date);
+  const appointmentStart = timeToMinutes(input.start_time);
+  const appointmentEnd = timeToMinutes(input.end_time);
+
+  const { data: professionalAvailability } = await supabase
+    .from("availability")
+    .select("start_time, end_time, is_active")
+    .eq("professional_id", input.professional_id)
+    .eq("day_of_week", dayOfWeek)
+    .eq("is_active", true)
+    .returns<AvailabilitySlot[]>();
+
+  const isProfessionalAvailable = professionalAvailability?.some((slot) => {
+    const start = timeToMinutes(slot.start_time);
+    const end = timeToMinutes(slot.end_time);
+    return appointmentStart >= start && appointmentEnd <= end;
+  });
+
+  if (!isProfessionalAvailable) {
+    throw new Error("Profissional não está disponível neste horário");
+  }
+
+  const { data: serviceAvailability } = await supabase
+    .from("service_availability")
+    .select("start_time, end_time, is_active")
+    .eq("service_id", input.service_id)
+    .eq("day_of_week", dayOfWeek)
+    .eq("is_active", true)
+    .returns<AvailabilitySlot[]>();
+
+  const isServiceAvailable = serviceAvailability?.some((slot) => {
+    const start = timeToMinutes(slot.start_time);
+    const end = timeToMinutes(slot.end_time);
+    return appointmentStart >= start && appointmentEnd <= end;
+  });
+
+  if (!isServiceAvailable) {
+    throw new Error("Serviço não está disponível neste dia/horário");
+  }
+
+  const { data: generalBlocks } = await supabase
+    .from("blocked_slots")
+    .select("reason")
+    .eq("company_id", companyId)
+    .is("professional_id", null)
+    .eq("date", input.date)
+    .returns<BlockedSlot[]>();
+
+  if (generalBlocks && generalBlocks.length > 0) {
+    const reason = generalBlocks[0].reason ? ` (${generalBlocks[0].reason})` : "";
+    throw new Error(`Esta data está bloqueada para agendamentos${reason}`);
+  }
+
+  const { data: professionalBlocks, error: professionalBlockError } = await supabase
+    .from("blocked_slots")
+    .select("reason")
+    .eq("professional_id", input.professional_id)
+    .eq("date", input.date)
+    .or(overlapsRangeFilter(input.start_time, input.end_time))
+    .returns<BlockedSlot[]>();
+
+  if (professionalBlockError) throw professionalBlockError;
+  if (professionalBlocks && professionalBlocks.length > 0) {
+    throw new Error("Este horário está bloqueado para o profissional");
+  }
+
+  let conflictsQuery = supabase
+    .from("appointments")
+    .select("id")
+    .eq("professional_id", input.professional_id)
+    .eq("date", input.date)
+    .neq("status", "cancelled")
+    .or(overlapsRangeFilter(input.start_time, input.end_time));
+
+  if (appointmentId) {
+    conflictsQuery = conflictsQuery.neq("id", appointmentId);
+  }
+
+  const { data: conflicts, error: conflictError } = await conflictsQuery;
+
+  if (conflictError) throw conflictError;
+  if (conflicts && conflicts.length > 0) {
+    throw new Error("Já existe um agendamento neste horário para este profissional");
+  }
+};
+
+const validateAppointmentInput = async (
+  companyId: string,
+  input: AppointmentMutationInput,
+  appointmentId?: string
+) => {
+  await validateSchedulingRules(companyId, input);
+  await validateEntityAvailability(companyId, input, appointmentId);
 };
 
 export const useAppointments = (startDate?: string, endDate?: string, professionalId?: string) => {
@@ -84,173 +310,21 @@ export const useCreateAppointment = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: Omit<Appointment, "id" | "company_id" | "created_at" | "updated_at" | "confirmation_sent" | "confirmation_sent_at">) => {
-      // 0. Buscar e validar regras de agendamento
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("company_id")
-        .eq("id", user?.id)
-        .single();
+    mutationFn: async (
+      data: Omit<Appointment, "id" | "company_id" | "created_at" | "updated_at" | "confirmation_sent" | "confirmation_sent_at">
+    ) => {
+      const companyId = await getCurrentCompanyId();
 
-      if (!profile?.company_id) {
-        throw new Error("Empresa não encontrada");
-      }
-
-      const { data: schedulingRules } = await supabase
-        .from("company_settings")
-        .select("min_advance_hours_manual, max_advance_days_manual, scheduling_mode, open_next_month_on_day, months_ahead_visible, opening_type, opening_start_day, opening_end_day, opening_week")
-        .eq("company_id", profile.company_id)
-        .single();
-
-      if (schedulingRules) {
-        const appointmentDateTime = new Date(`${data.date}T${data.start_time}`);
-        const validation = validateAppointmentDate(
-          appointmentDateTime,
-          {
-            ...schedulingRules,
-            scheduling_mode: (schedulingRules.scheduling_mode || 'rolling') as 'rolling' | 'monthly',
-            min_advance_hours: schedulingRules.min_advance_hours_manual,
-            max_advance_days: schedulingRules.max_advance_days_manual,
-            min_advance_hours_ai: 0,
-            max_advance_days_ai: 0,
-            min_advance_hours_manual: schedulingRules.min_advance_hours_manual,
-            max_advance_days_manual: schedulingRules.max_advance_days_manual,
-            opening_type: (schedulingRules.opening_type || 'date_range') as 'date_range' | 'week_defined',
-            opening_start_day: schedulingRules.opening_start_day || 1,
-            opening_end_day: schedulingRules.opening_end_day || 5,
-            opening_week: (schedulingRules.opening_week as 'first' | 'second' | 'third' | 'fourth' | 'last' | null) || null,
-            auto_mark_no_show_enabled: false,
-            auto_mark_no_show_hours: 0,
-          },
-          false // isAI = false (agendamento manual)
-        );
-
-        if (!validation.valid) {
-          throw new Error(validation.error);
-        }
-      }
-
-      // 1. Validar que o serviço está ativo
-      const { data: service } = await supabase
-        .from("services")
-        .select("is_active")
-        .eq("id", data.service_id)
-        .single();
-
-      if (!service?.is_active) {
-        throw new Error("Este serviço não está disponível");
-      }
-
-      // 2. Validar que o profissional está ativo
-      const { data: professional } = await supabase
-        .from("professionals")
-        .select("is_active")
-        .eq("id", data.professional_id)
-        .single();
-
-      if (!professional?.is_active) {
-        throw new Error("Este profissional não está disponível");
-      }
-
-      // 3. Validar vínculo profissional-serviço
-      const { data: link } = await supabase
-        .from("service_professionals")
-        .select("*")
-        .eq("service_id", data.service_id)
-        .eq("professional_id", data.professional_id)
-        .single();
-
-      if (!link) {
-        throw new Error("Este profissional não está vinculado a este serviço");
-      }
-
-      // 4. Validar disponibilidade DO PROFISSIONAL
-      const dayOfWeek = getLocalWeekdayFromISO(data.date);
-      const { data: profAvailability } = await supabase
-        .from("availability")
-        .select("*")
-        .eq("professional_id", data.professional_id)
-        .eq("day_of_week", dayOfWeek)
-        .eq("is_active", true);
-
-      const apStart = timeToMinutes(data.start_time);
-      const apEnd = timeToMinutes(data.end_time);
-      
-      const isProfessionalAvailable = profAvailability?.some(av => {
-        const st = timeToMinutes(av.start_time);
-        const en = timeToMinutes(av.end_time);
-        return apStart >= st && apEnd <= en;
-      });
-
-      if (!isProfessionalAvailable) {
-        throw new Error("Profissional não está disponível neste horário");
-      }
-
-      // 5. Validar disponibilidade DO SERVIÇO
-      const { data: serviceAvailability } = await supabase
-        .from("service_availability")
-        .select("*")
-        .eq("service_id", data.service_id)
-        .eq("day_of_week", dayOfWeek)
-        .eq("is_active", true);
-
-      const isServiceAvailable = serviceAvailability?.some(av => {
-        const st = timeToMinutes(av.start_time);
-        const en = timeToMinutes(av.end_time);
-        return apStart >= st && apEnd <= en;
-      });
-
-      if (!isServiceAvailable) {
-        throw new Error("Serviço não está disponível neste dia/horário");
-      }
-
-      // 6. Verificar bloqueios GERAIS primeiro
-      const { data: generalBlock } = await supabase
-        .from("blocked_slots")
-        .select("*")
-        .eq("company_id", profile?.company_id)
-        .is("professional_id", null)
-        .eq("date", data.date);
-
-      if (generalBlock && generalBlock.length > 0) {
-        const reason = generalBlock[0].reason ? ` (${generalBlock[0].reason})` : "";
-        throw new Error(`Esta data está bloqueada para agendamentos${reason}`);
-      }
-
-      // 7. Verificar bloqueios do profissional
-      const { data: blocks, error: blockError } = await supabase
-        .from("blocked_slots")
-        .select("*")
-        .eq("professional_id", data.professional_id)
-        .eq("date", data.date)
-        .or(`and(start_time.lte.${data.start_time},end_time.gt.${data.start_time}),and(start_time.lt.${data.end_time},end_time.gte.${data.end_time})`);
-
-      if (blockError) throw blockError;
-      if (blocks && blocks.length > 0) {
-        throw new Error("Este horário está bloqueado para o profissional");
-      }
-
-      // 8. Validar conflitos de horário
-      const { data: conflicts, error: conflictError } = await supabase
-        .from("appointments")
-        .select("*")
-        .eq("professional_id", data.professional_id)
-        .eq("date", data.date)
-        .neq("status", "cancelled")
-        .or(`and(start_time.lte.${data.start_time},end_time.gt.${data.start_time}),and(start_time.lt.${data.end_time},end_time.gte.${data.end_time})`);
-
-      if (conflictError) throw conflictError;
-      if (conflicts && conflicts.length > 0) {
-        throw new Error("Já existe um agendamento neste horário para este profissional");
-      }
+      await validateAppointmentInput(companyId, data);
 
       const { data: result, error } = await supabase
         .from("appointments")
-        .insert([{
-          ...data,
-          company_id: profile.company_id
-        }])
+        .insert([
+          {
+            ...data,
+            company_id: companyId,
+          },
+        ])
         .select(`
           *,
           professional:professionals(name),
@@ -286,9 +360,36 @@ export const useUpdateAppointment = () => {
     mutationFn: async ({ id, data }: { id: string; data: Partial<Appointment> }) => {
       const { data: before } = await supabase
         .from("appointments")
-        .select("id, status, company_id")
+        .select("id, status, company_id, professional_id, service_id, contact_id, date, start_time, end_time, notes")
         .eq("id", id)
         .single();
+
+      if (!before?.company_id) {
+        throw new Error("Agendamento não encontrado");
+      }
+
+      const nextPayload: AppointmentMutationInput = {
+        professional_id: data.professional_id ?? before.professional_id,
+        service_id: data.service_id ?? before.service_id,
+        contact_id: data.contact_id ?? before.contact_id,
+        date: data.date ?? before.date,
+        start_time: data.start_time ?? before.start_time,
+        end_time: data.end_time ?? before.end_time,
+        notes: data.notes ?? before.notes ?? undefined,
+        status: data.status ?? before.status,
+      };
+
+      const requiresSchedulingValidation =
+        data.professional_id !== undefined ||
+        data.service_id !== undefined ||
+        data.contact_id !== undefined ||
+        data.date !== undefined ||
+        data.start_time !== undefined ||
+        data.end_time !== undefined;
+
+      if (requiresSchedulingValidation) {
+        await validateAppointmentInput(before.company_id, nextPayload, id);
+      }
 
       const { data: result, error } = await supabase
         .from("appointments")
@@ -304,8 +405,8 @@ export const useUpdateAppointment = () => {
 
       if (error) throw error;
       if (result?.company_id) {
-        await logAudit("appointment_updated", result.company_id, result.id, result);
-        if (before?.status && result.status && before.status !== result.status) {
+        await logAudit("appointment_updated", result.company_id, result.id, result as AppointmentAuditPayload);
+        if (before.status && result.status && before.status !== result.status) {
           await logAudit(
             "appointment_status_changed",
             result.company_id,
@@ -341,7 +442,7 @@ export const useCancelAppointment = () => {
       const updateData: Partial<Appointment> = {
         status: "cancelled",
       };
-      
+
       if (reason) {
         updateData.notes = reason;
       }
@@ -360,7 +461,7 @@ export const useCancelAppointment = () => {
 
       if (error) throw error;
       if (result?.company_id) {
-        await logAudit("appointment_cancelled", result.company_id, result.id, result, reason);
+        await logAudit("appointment_cancelled", result.company_id, result.id, result as AppointmentAuditPayload, reason);
       }
       return result;
     },
@@ -388,10 +489,10 @@ export const useConfirmAppointment = () => {
     mutationFn: async (id: string) => {
       const { data: result, error } = await supabase
         .from("appointments")
-        .update({ 
+        .update({
           status: "confirmed",
           confirmation_sent: true,
-          confirmation_sent_at: new Date().toISOString()
+          confirmation_sent_at: new Date().toISOString(),
         })
         .eq("id", id)
         .select(`
@@ -404,7 +505,7 @@ export const useConfirmAppointment = () => {
 
       if (error) throw error;
       if (result?.company_id) {
-        await logAudit("appointment_confirmed", result.company_id, result.id, result);
+        await logAudit("appointment_confirmed", result.company_id, result.id, result as AppointmentAuditPayload);
       }
       return result;
     },
@@ -444,7 +545,7 @@ export const useCompleteAppointment = () => {
 
       if (error) throw error;
       if (result?.company_id) {
-        await logAudit("appointment_completed", result.company_id, result.id, result);
+        await logAudit("appointment_completed", result.company_id, result.id, result as AppointmentAuditPayload);
       }
       return result;
     },
@@ -476,10 +577,7 @@ export const useDeleteAppointment = () => {
         .eq("id", id)
         .single();
 
-      const { error } = await supabase
-        .from("appointments")
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from("appointments").delete().eq("id", id);
 
       if (error) throw error;
       if (before?.company_id) {
@@ -524,7 +622,7 @@ export const useMarkNoShow = () => {
 
       if (error) throw error;
       if (result?.company_id) {
-        await logAudit("appointment_no_show", result.company_id, result.id, result);
+        await logAudit("appointment_no_show", result.company_id, result.id, result as AppointmentAuditPayload);
       }
       return result;
     },
@@ -545,3 +643,11 @@ export const useMarkNoShow = () => {
   });
 };
 
+export const getAppointmentEndTime = (startTime: string, durationInMinutes: number) => {
+  const [hours, minutes] = startTime.split(":").map(Number);
+  const startDate = new Date();
+  startDate.setHours(hours, minutes, 0);
+
+  const endDate = addMinutes(startDate, durationInMinutes);
+  return format(endDate, "HH:mm");
+};

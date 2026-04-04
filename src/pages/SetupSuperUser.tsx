@@ -9,8 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
 export default function SetupSuperUser() {
-  const [email, setEmail] = useState('guilhermebarcellos@rocketmail.com');
-  const [password, setPassword] = useState('MarcaPraMim@2025!Secure');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [superuserExists, setSuperuserExists] = useState(false);

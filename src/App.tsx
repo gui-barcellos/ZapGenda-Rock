@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import SetupSuperUser from "./pages/SetupSuperUser";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
+import AcceptInvite from "./pages/AcceptInvite";
 
 // SuperUser pages
 import SuperUserDashboard from "./pages/superuser/Dashboard";
@@ -69,6 +70,7 @@ const App = () => (
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="/login" element={<Login />} />
               <Route path="/auth/reset" element={<ResetPassword />} />
+              <Route path="/accept-invite" element={<AcceptInvite />} />
               <Route path="/setup-superuser" element={<SetupSuperUser />} />
               
               {/* SuperUser routes */}

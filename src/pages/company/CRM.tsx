@@ -11,7 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { GuidedEmptyState } from "@/components/company/GuidedEmptyState";
+import { Loader2, Rows3 } from "lucide-react";
 
 const CRM = () => {
   const [filters, setFilters] = useState<CRMFiltersType>({});
@@ -76,6 +77,22 @@ const CRM = () => {
               </Button>
             </CardContent>
           </Card>
+        ) : !isLoading && (contacts?.length || 0) === 0 ? (
+          <GuidedEmptyState
+            icon={Rows3}
+            title="Seu pipeline está pronto, mas ainda sem leads"
+            description="Assim que você cadastrar ou importar contatos, já pode arrastar cada lead entre os estágios e acompanhar o funil."
+            badge="CRM vazio"
+            steps={[
+              "Cadastre o primeiro contato para começar a organizar oportunidades.",
+              "Depois edite o contato para definir valor estimado, observações e próximas ações.",
+              "Quando o WhatsApp estiver ativo, novas conversas também podem alimentar seu pipeline.",
+            ]}
+            actions={[
+              { label: "Cadastrar cliente", href: "/company/contacts/patients" },
+              { label: "Abrir chat ao vivo", href: "/company/live-chat", variant: "outline" },
+            ]}
+          />
         ) : (
           <CRMKanban contacts={contacts} stages={stages} isLoading={isLoading} />
         )}

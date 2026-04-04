@@ -35,6 +35,7 @@ interface ScheduleSidebarProps {
   schedulingTags: SchedulingTag[];
   onCreateAppointment: () => void;
   onAppointmentSelect: (appointment: Appointment) => void;
+  createDisabled?: boolean;
 }
 
 export function ScheduleSidebar({
@@ -47,6 +48,7 @@ export function ScheduleSidebar({
   schedulingTags,
   onCreateAppointment,
   onAppointmentSelect,
+  createDisabled = false,
 }: ScheduleSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -77,10 +79,17 @@ export function ScheduleSidebar({
         className="w-full flex-shrink-0"
         size="lg"
         onClick={onCreateAppointment}
+        disabled={createDisabled}
       >
         <Plus className="h-5 w-5 mr-2" />
         AGENDAR
       </Button>
+
+      {createDisabled && (
+        <p className="text-xs text-muted-foreground">
+          Complete o onboarding mínimo para liberar novos agendamentos.
+        </p>
+      )}
 
       {/* Busca com Dropdown */}
       <div className="relative flex-shrink-0">

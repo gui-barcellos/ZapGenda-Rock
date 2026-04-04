@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
@@ -26,16 +26,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      setUser(null);
+      setSession(null);
+      return;
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -45,9 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch user role and check if company owner
   useEffect(() => {
-    if (!user) {
+    if (!isSupabaseConfigured || !user) {
       setIsCompanyOwner(false);
       setUserRole(null);
       setCompanyId(null);
@@ -55,7 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const fetchUserData = async () => {
-      // 1. Buscar role
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
@@ -64,7 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUserRole(roleData?.role || null);
 
-      // 2. Buscar profile com company_id
       const { data: profileData } = await supabase
         .from('profiles')
         .select('email, company_id')
@@ -73,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (profileData?.company_id) {
         setCompanyId(profileData.company_id);
-        
+
         const { data: companyData } = await supabase
           .from('companies')
           .select('owner_email')
@@ -90,6 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const signOut = async () => {
+    if (!isSupabaseConfigured) {
+      navigate('/login');
+      return;
+    }
+
     await supabase.auth.signOut();
     navigate('/login');
   };
@@ -97,12 +104,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const canManageUsers = isCompanyOwner;
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      loading, 
-      signOut, 
-      isCompanyOwner, 
+    <AuthContext.Provider value={{
+      user,
+      session,
+      loading,
+      signOut,
+      isCompanyOwner,
       userRole,
       canManageUsers,
       companyId

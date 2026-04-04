@@ -6,7 +6,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isSupabaseConfigured, missingSupabaseEnv } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Mail } from "lucide-react";
 
@@ -42,6 +42,16 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isSupabaseConfigured) {
+      toast({
+        title: "Supabase não configurado",
+        description: `Faltam variáveis locais: ${missingSupabaseEnv.join(", ")}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -114,10 +124,11 @@ const Login = () => {
           navigate('/company/schedule');
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Verifique suas credenciais e tente novamente.";
       toast({
         title: "Erro ao fazer login",
-        description: error.message || "Verifique suas credenciais e tente novamente.",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -127,6 +138,15 @@ const Login = () => {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isSupabaseConfigured) {
+      toast({
+        title: "Supabase não configurado",
+        description: `Faltam variáveis locais: ${missingSupabaseEnv.join(", ")}`,
+        variant: "destructive",
+      });
+      return;
+    }
     
     if (!resetEmail.trim()) {
       toast({
@@ -153,11 +173,12 @@ const Login = () => {
       
       setResetDialogOpen(false);
       setResetEmail("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Reset password error:", error);
+      const message = error instanceof Error ? error.message : "Não foi possível enviar o email de recuperação.";
       toast({
         title: "Erro ao enviar email",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -180,6 +201,12 @@ const Login = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!isSupabaseConfigured && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              Ambiente local sem Supabase configurado. Para liberar login e dados reais, crie um <code>.env.local</code> com: {missingSupabaseEnv.join(", ")}.
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>

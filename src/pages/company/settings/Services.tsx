@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ServicesTable } from "@/components/company/ServicesTable";
 import { ServiceDialog } from "@/components/company/ServiceDialog";
+import { SetupGuideCard } from "@/components/company/SetupGuideCard";
 import { useServices } from "@/hooks/useServices";
 import { Plus } from "lucide-react";
 
@@ -45,6 +46,32 @@ const Services = () => {
             Adicionar Serviço
           </Button>
         </div>
+
+        {(!services || services.length === 0) && (
+          <SetupGuideCard
+            title="Cadastre o primeiro serviço"
+            description="Sem serviços ativos, a agenda fica sem o que vender e o primeiro agendamento trava antes de começar."
+            badge="Passo 2 do onboarding"
+            steps={[
+              {
+                title: "Defina nome, duração e preço",
+                description: "Esses dados viram a base operacional dos agendamentos e relatórios.",
+              },
+              {
+                title: "Vincule o serviço a um profissional",
+                description: "Serviços sem profissional ficam desativados automaticamente para evitar erro na agenda.",
+              },
+              {
+                title: "Depois ajuste a disponibilidade",
+                description: "Com serviços criados, você consegue abrir a agenda com horários reais de atendimento.",
+              },
+            ]}
+            actions={[
+              { label: "Adicionar primeiro serviço", onClick: handleAdd },
+              { label: "Revisar profissionais", href: "/company/settings/professionals", variant: "outline" },
+            ]}
+          />
+        )}
 
         <Card>
           <CardContent className="pt-6">

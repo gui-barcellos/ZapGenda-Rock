@@ -3,16 +3,17 @@ import { ConversationSidebar } from "./ConversationSidebar";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatInput } from "./ChatInput";
 import { Button } from "@/components/ui/button";
-import { Bot, X, VolumeX, Check, Star, MessageCircle, BotOff, Hourglass, Clock } from "lucide-react";
+import { GuidedEmptyState } from "@/components/company/GuidedEmptyState";
+import { Bot, VolumeX, Star, MessageCircle, BotOff, Clock, MessageSquareOff, PlugZap } from "lucide-react";
 import ContactDialog from "@/components/company/ContactDialog";
-import { useConversation, useUpdateConversationStatus } from "@/hooks/useConversations";
+import { useConversation, useConversations } from "@/hooks/useConversations";
 import { useConversationRealtime } from "@/hooks/useConversationRealtime";
 import { useMessageFallback } from "@/hooks/useMessageFallback";
-import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUrgentAlert } from "@/hooks/useUrgentAlert";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useCompanyData } from "@/hooks/useCompanyData";
+import { useConnectedWhatsApp } from "@/hooks/useConnectedWhatsApp";
 import { isAIActive } from "@/lib/ai-utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -68,7 +69,6 @@ export const LiveChatLayout = () => {
   const { data: conversation } = useConversation(selectedConversationId);
   const { lastEventTimeRef } = useConversationRealtime(selectedConversationId);
   useMessageFallback(selectedConversationId, lastEventTimeRef); // Fallback polling inteligente
-  const updateStatus = useUpdateConversationStatus();
   const { hasUrgentConversations, urgentCount, isMuted, muteAlert, unmuteAlert } = useUrgentAlert(selectedConversationId);
   const [soundEnabled, setSoundEnabled] = useState(() => {
     const stored = localStorage.getItem('chat-sound-enabled');
@@ -84,8 +84,13 @@ export const LiveChatLayout = () => {
       unmuteAlert();
     }
   }, [soundEnabled, isMuted, muteAlert, unmuteAlert]);
-  const { user, companyId } = useAuth();
+  const { companyData } = useCompanyData();
+  const { data: connectedWhatsApp } = useConnectedWhatsApp(companyData?.id ?? null);
+  const { data: conversationsData } = useConversations("all");
   const queryClient = useQueryClient();
+
+  const totalConversations = conversationsData?.pages.reduce((sum, page) => sum + page.conversations.length, 0) || 0;
+  const hasConnectedWhatsApp = Boolean(connectedWhatsApp?.isConnected);
 
   // Countdown para reativação automática da IA
   const countdown = useCountdown(conversation?.ai_disabled_until || null);
@@ -250,18 +255,6 @@ export const LiveChatLayout = () => {
     await (supabase
       .from("conversations")
       .update({ is_favorite: !conversation.is_favorite } as any)
-      .eq("id", selectedConversationId));
-    
-    queryClient.invalidateQueries({ queryKey: ["conversation", selectedConversationId] });
-    queryClient.invalidateQueries({ queryKey: ["conversations"] });
-  };
-
-  const handleToggleRead = async () => {
-    if (!selectedConversationId || !conversation) return;
-    
-    await (supabase
-      .from("conversations")
-      .update({ is_unread: !conversation.is_unread } as any)
       .eq("id", selectedConversationId));
     
     queryClient.invalidateQueries({ queryKey: ["conversation", selectedConversationId] });
@@ -434,20 +427,55 @@ export const LiveChatLayout = () => {
               />
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center chat-area-pattern">
-              <Card className="p-12 text-center max-w-md shadow-lg">
-                <div className="flex justify-center mb-4">
-                  <div className="rounded-full bg-primary/10 p-6">
-                    <MessageCircle className="h-12 w-12 text-primary" />
-                  </div>
-                </div>
-                <h3 className="text-xl font-semibold mb-2">
-                  Nenhuma conversa selecionada
-                </h3>
-                <p className="text-muted-foreground mb-6">
-                  Selecione uma conversa na barra lateral para começar a conversar com seus clientes
-                </p>
-              </Card>
+            <div className="flex-1 flex items-center justify-center chat-area-pattern p-6">
+              <div className="w-full max-w-2xl">
+                {!hasConnectedWhatsApp ? (
+                  <GuidedEmptyState
+                    icon={PlugZap}
+                    title="Conecte o WhatsApp para liberar o chat ao vivo"
+                    description="Sem um número conectado, o atendimento fica vazio porque ainda não há como receber nem iniciar conversas reais por aqui."
+                    badge="Canal pendente"
+                    steps={[
+                      "Abra a tela de conexão para parear o número da clínica por QR Code ou código.",
+                      "Depois volte aqui para acompanhar mensagens, favoritos e filas humanas.",
+                      "Enquanto isso, você já pode cadastrar clientes e preparar o CRM.",
+                    ]}
+                    actions={[
+                      { label: "Conectar WhatsApp", href: "/company/settings/whatsapp" },
+                      { label: "Cadastrar clientes", href: "/company/contacts/patients", variant: "outline" },
+                    ]}
+                  />
+                ) : totalConversations === 0 ? (
+                  <GuidedEmptyState
+                    icon={MessageSquareOff}
+                    title="Seu chat está pronto, só falta a primeira conversa"
+                    description="Quando um cliente mandar mensagem, ela aparece aqui automaticamente. Você também pode puxar o primeiro atendimento pela lista lateral."
+                    badge="Chat vazio"
+                    steps={[
+                      "Busque um cliente pelo nome ou telefone na barra lateral para iniciar uma conversa manualmente.",
+                      "Se o cliente ainda não existir, cadastre o contato para não perder o contexto do atendimento.",
+                      `Número conectado: ${connectedWhatsApp?.formattedPhone || connectedWhatsApp?.phone || "WhatsApp ativo"}.`,
+                    ]}
+                    actions={[
+                      { label: "Ver clientes", href: "/company/contacts/patients" },
+                      { label: "Abrir CRM", href: "/company/crm", variant: "outline" },
+                    ]}
+                  />
+                ) : (
+                  <GuidedEmptyState
+                    icon={MessageCircle}
+                    title="Escolha uma conversa para continuar"
+                    description="Sua fila já tem atendimentos. Selecione um contato na lateral para ver mensagens, assumir a conversa ou devolver para a IA."
+                    badge={`${totalConversations} conversa${totalConversations === 1 ? "" : "s"}`}
+                    steps={[
+                      "Favoritas ajudam a fixar clientes importantes no topo do fluxo.",
+                      "Use o botão do bot para assumir manualmente quando precisar responder como humano.",
+                      "Ao abrir a conversa, ela é marcada como lida automaticamente.",
+                    ]}
+                    compact
+                  />
+                )}
+              </div>
             </div>
           )}
         </div>

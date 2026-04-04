@@ -1,15 +1,20 @@
 import CompanyLayout from "@/components/layout/CompanyLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { AvailabilitySchedule } from "@/components/company/AvailabilitySchedule";
 import { ServiceAvailabilitySchedule } from "@/components/company/ServiceAvailabilitySchedule";
 import { ProfessionalBlockedSlots } from "@/components/company/ProfessionalBlockedSlots";
 import { GeneralBlockedSlots } from "@/components/company/GeneralBlockedSlots";
-import { ArrowLeft, Calendar, CalendarOff, Briefcase, User } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { SetupGuideCard } from "@/components/company/SetupGuideCard";
+import { useProfessionals } from "@/hooks/useProfessionals";
+import { useServices } from "@/hooks/useServices";
+import { Calendar, CalendarOff, Briefcase, User } from "lucide-react";
 
 const Availability = () => {
-  const navigate = useNavigate();
+  const { professionals = [] } = useProfessionals();
+  const { services = [] } = useServices();
+
+  const activeProfessionals = professionals.filter((professional) => professional.is_active);
+  const activeServices = services.filter((service) => service.is_active);
 
   return (
     <CompanyLayout>
@@ -20,6 +25,29 @@ const Availability = () => {
             Configure horários de trabalho e bloqueios de agenda
           </p>
         </div>
+
+        {activeProfessionals.length === 0 && (
+          <SetupGuideCard
+            title="Cadastre profissionais antes de configurar horários"
+            description="A disponibilidade depende de alguém ativo na equipe. Sem isso, esta tela vira um beco sem saída."
+            badge="Dependência pendente"
+            actions={[
+              { label: "Adicionar profissional", href: "/company/settings/professionals" },
+            ]}
+          />
+        )}
+
+        {activeProfessionals.length > 0 && activeServices.length === 0 && (
+          <SetupGuideCard
+            title="Você já tem equipe, mas ainda faltam serviços"
+            description="Depois de ajustar os horários, o próximo passo é cadastrar serviços ativos para a agenda aceitar marcações reais."
+            badge="Próximo passo"
+            actions={[
+              { label: "Cadastrar serviços", href: "/company/settings/services" },
+              { label: "Abrir agenda", href: "/company/schedule", variant: "outline" },
+            ]}
+          />
+        )}
 
         <Tabs defaultValue="professional" className="space-y-4">
           <TabsList>

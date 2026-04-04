@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { CheckCircle2, XCircle, WifiOff, RefreshCw, QrCode, Phone } from "lucide-react";
 import { useCompanyWhatsAppConnection, useValidateZAPIConnection } from "@/hooks/useWhatsAppConnections";
+import { SetupGuideCard } from "@/components/company/SetupGuideCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -187,11 +188,35 @@ const WhatsAppConnection = () => {
               Monitore o status da conexao WhatsApp
             </p>
           </div>
+          <SetupGuideCard
+            title="WhatsApp ainda não configurado"
+            description="Sem uma conexão criada, o chat ao vivo e as automações ficam indisponíveis. Enquanto isso, você ainda pode fechar a preparação interna da clínica."
+            badge="Canal pendente"
+            steps={[
+              {
+                title: "Finalize profissionais, serviços e horários",
+                description: "Assim a agenda já fica pronta mesmo antes da conexão do número.",
+              },
+              {
+                title: "Peça a configuração da conexão",
+                description: "Esta etapa ainda depende do ambiente e das credenciais da Z-API.",
+              },
+              {
+                title: "Volte aqui para validar QR ou código",
+                description: "Assim que a conexão existir, esta tela mostra as opções de pareamento.",
+              },
+            ]}
+            actions={[
+              { label: "Abrir agenda", href: "/company/schedule" },
+              { label: "Revisar mensagens automáticas", href: "/company/settings/auto-messages", variant: "outline" },
+            ]}
+          />
+
           <Card>
             <CardContent className="py-12">
               <div className="text-center text-muted-foreground">
                 <WifiOff className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <p className="text-lg">Nenhuma conexao WhatsApp configurada</p>
+                <p className="text-lg">Nenhuma conexão WhatsApp configurada</p>
                 <p className="text-sm mt-2">Entre em contato com Guilherme para configurar</p>
               </div>
             </CardContent>
@@ -231,7 +256,7 @@ const WhatsAppConnection = () => {
                   </p>
                   {isConnected && validationResult?.phone && (
                     <p className="text-sm text-muted-foreground">
-                      ?? {validationResult.phone}
+                      Número conectado: {validationResult.phone}
                     </p>
                   )}
                 </div>
@@ -244,19 +269,20 @@ const WhatsAppConnection = () => {
             <div className="bg-muted/50 p-4 rounded-lg space-y-3">
               {isConnected ? (
                 <>
-                  <p className="text-sm font-medium">? Conexao ativa e funcionando</p>
+                  <p className="text-sm font-medium">Conexão ativa e funcionando</p>
                   <p className="text-xs text-muted-foreground">
-                    � Mensagens sendo enviadas e recebidas normalmente<br/>
-                    � Para conectar outro numero, desconecte primeiro no painel Z-API
+                    Mensagens sendo enviadas e recebidas normalmente.
+                    <br />
+                    Para conectar outro número, desconecte primeiro no painel Z-API.
                   </p>
                 </>
               ) : (
                 <>
                   <p className="text-sm font-medium text-destructive">
-                    ?? Conexao inativa
+                    Conexão inativa
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Conecte seu WhatsApp usando QR Code ou numero.
+                    Conecte seu WhatsApp usando QR Code ou número.
                   </p>
                 </>
               )}

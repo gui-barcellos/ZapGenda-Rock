@@ -1,6 +1,6 @@
 # ZapGenda - Supabase Documentation
 
-Last updated: 2026-02-08
+Last updated: 2026-03-12
 
 This document describes how ZapGenda uses Supabase (database, auth, RLS, edge functions, and scheduler) so a developer can maintain the system without reverse‑engineering.
 
@@ -20,10 +20,12 @@ This document describes how ZapGenda uses Supabase (database, auth, RLS, edge fu
 ## 2) Environments / Keys
 
 ### Frontend (Vite)
-Configured in `.env` at project root:
+Configured in `.env.local` (preferred for local dev) or `.env` at project root:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY` (anon key)
 - `VITE_SUPABASE_PROJECT_ID`
+
+If these are missing, the frontend now shows a configuration warning instead of failing with a blank screen.
 
 ### Edge Functions (Supabase Secrets)
 Set in Supabase → Project Settings → Edge Functions → Secrets:
@@ -146,6 +148,8 @@ All functions are deployed to the project.
 ### Admin / Utility
 - `create-company`, `delete-company`
 - `send-user-invite`, `send-auth-email`
+- `send-admin-password-reset`
+- `accept-user-invite`
 - `reset-monthly-tokens`
 
 ---
@@ -177,6 +181,13 @@ supabase db push
 ### Deploy all functions
 ```
 supabase functions deploy <function-name>
+```
+
+For the latest onboarding/invite changes, deploy at minimum:
+```
+supabase functions deploy accept-user-invite
+supabase functions deploy create-company
+supabase functions deploy send-admin-password-reset
 ```
 
 Tip: deploy in batch via a script or loop if needed.

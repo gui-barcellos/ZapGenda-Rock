@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfessionalsTable } from "@/components/company/ProfessionalsTable";
 import { ProfessionalDialog } from "@/components/company/ProfessionalDialog";
+import { SetupGuideCard } from "@/components/company/SetupGuideCard";
 import { useProfessionals } from "@/hooks/useProfessionals";
 import { UserPlus } from "lucide-react";
 
@@ -40,6 +41,32 @@ const Professionals = () => {
             Adicionar Profissional
           </Button>
         </div>
+
+        {(!professionals || professionals.length === 0) && (
+          <SetupGuideCard
+            title="Cadastre o primeiro profissional"
+            description="Esse é o passo que libera a seleção de agenda e permite vincular serviços reais à equipe."
+            badge="Passo 1 do onboarding"
+            steps={[
+              {
+                title: "Adicione nome e especialidade",
+                description: "Comece com quem realmente vai atender para a agenda ficar clara desde o início.",
+              },
+              {
+                title: "Deixe o profissional ativo",
+                description: "Somente profissionais ativos aparecem na agenda e podem receber serviços.",
+              },
+              {
+                title: "Depois avance para serviços",
+                description: "Com a equipe cadastrada, o próximo passo é dizer o que cada pessoa oferece.",
+              },
+            ]}
+            actions={[
+              { label: "Adicionar primeiro profissional", onClick: handleAdd },
+              { label: "Ir para serviços", href: "/company/settings/services", variant: "outline" },
+            ]}
+          />
+        )}
 
         <Card>
           <CardContent className="pt-6">

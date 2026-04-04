@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
           || Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com')
           || '';
 
-        const redirectTo = appUrl ? `${appUrl}/login` : undefined;
+        const redirectTo = appUrl ? `${appUrl}/auth/reset` : undefined;
         const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
           type: 'recovery',
           email: companyData.owner_email,

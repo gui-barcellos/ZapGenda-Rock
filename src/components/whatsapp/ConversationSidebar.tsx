@@ -5,7 +5,7 @@ import { useLastMessages } from "@/hooks/useLastMessages";
 import { ConversationCard } from "./ConversationCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Search, UserPlus, MessageCirclePlus } from "lucide-react";
+import { Search, UserPlus, MessageCirclePlus, Inbox } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -14,6 +14,7 @@ import { Ban, CheckCheck, MoreVertical, Star, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import ContactDialog from "@/components/company/ContactDialog";
 import { formatPhoneDisplay, normalizePhoneWithCountryCode } from "@/lib/phone-utils";
+import { GuidedEmptyState } from "@/components/company/GuidedEmptyState";
 import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface ConversationSidebarProps {
@@ -457,8 +458,21 @@ export const ConversationSidebar = ({
         )}
 
         {!searchTerm && filteredConversations.length === 0 && (
-          <div className="p-8 text-center text-muted-foreground">
-            Nenhuma conversa encontrada
+          <div className="p-4">
+            <GuidedEmptyState
+              icon={Inbox}
+              title="Ainda não existem conversas"
+              description="Quando o primeiro cliente chamar no WhatsApp, ele aparece aqui. Você também pode procurar um contato para abrir manualmente a primeira conversa."
+              badge="Fila vazia"
+              steps={[
+                "Use a busca acima para localizar um cliente já cadastrado.",
+                "Se ele ainda não existir, crie um contato novo para abrir o atendimento depois.",
+              ]}
+              actions={[
+                { label: "Cadastrar contato", onClick: () => setShowContactDialog(true) },
+              ]}
+              compact
+            />
           </div>
         )}
       </div>

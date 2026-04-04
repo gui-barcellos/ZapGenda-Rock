@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isSupabaseConfigured, missingSupabaseEnv } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
 const ResetPassword = () => {
@@ -23,35 +24,57 @@ const ResetPassword = () => {
   }, []);
 
   useEffect(() => {
-    const accessToken = hashParams.get("access_token");
-    const refreshToken = hashParams.get("refresh_token");
-
-    if (!accessToken || !refreshToken) {
+    if (!isSupabaseConfigured) {
       setSessionReady(false);
       return;
     }
 
-    const setSession = async () => {
-      const { error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
+    const searchParams = new URLSearchParams(window.location.search);
+    const accessToken = hashParams.get("access_token");
+    const refreshToken = hashParams.get("refresh_token");
+    const authCode = searchParams.get("code");
 
-      if (error) {
-        toast({
-          title: "Link invalido",
-          description: error.message,
-          variant: "destructive",
+    const bootstrapSession = async () => {
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
         });
+
+        if (error) {
+          toast({
+            title: "Link invalido",
+            description: error.message,
+            variant: "destructive",
+          });
+          return;
+        }
+      } else if (authCode) {
+        const { error } = await supabase.auth.exchangeCodeForSession(authCode);
+
+        if (error) {
+          toast({
+            title: "Link invalido",
+            description: error.message,
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        setSessionReady(false);
         return;
       }
 
       const { data } = await supabase.auth.getUser();
       setUserEmail(data.user?.email ?? null);
       setSessionReady(true);
+
+      if (window.location.hash || window.location.search) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
     };
 
-    setSession();
+    bootstrapSession();
   }, [hashParams, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -86,10 +109,11 @@ const ResetPassword = () => {
       });
 
       navigate("/login");
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Tente novamente.";
       toast({
         title: "Erro ao atualizar senha",
-        description: err.message || "Tente novamente.",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -107,7 +131,13 @@ const ResetPassword = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!sessionReady && (
+          {!isSupabaseConfigured && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              Ambiente local sem Supabase configurado. Faltam: {missingSupabaseEnv.join(", ")}.
+            </div>
+          )}
+
+          {!sessionReady && isSupabaseConfigured && (
             <div className="text-sm text-muted-foreground">
               Link invalido ou expirado. Solicite um novo link de recuperacao.
             </div>

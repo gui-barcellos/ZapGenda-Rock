@@ -5,10 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Users, Calendar, Tag, ChevronLeft, ChevronRight, TagIcon, X } from "lucide-react";
+import { UserPlus, Users, Calendar, Tag, ChevronLeft, ChevronRight, TagIcon, X, ClipboardList } from "lucide-react";
 import ContactsTable from "@/components/company/ContactsTable";
 import ContactDialog from "@/components/company/ContactDialog";
 import ContactHistoryDialog from "@/components/company/ContactHistoryDialog";
+import { GuidedEmptyState } from "@/components/company/GuidedEmptyState";
 import { BulkTagDialog } from "@/components/company/tags/BulkTagDialog";
 import { useContacts, useContactsCount, Contact } from "@/hooks/useContacts";
 import { useTags } from "@/hooks/useTags";
@@ -225,6 +226,39 @@ export default function Patients() {
               <Skeleton key={i} className="h-16 w-full" />
             ))}
           </div>
+        ) : totalContactsCount === 0 ? (
+          <GuidedEmptyState
+            icon={Users}
+            title="Sua base de clientes começa aqui"
+            description="Cadastre o primeiro cliente para preencher agenda, histórico e CRM sem depender do WhatsApp chegar primeiro."
+            badge="Primeiro passo"
+            steps={[
+              "Crie um cliente com nome e telefone para já conseguir identificar retornos e histórico.",
+              "Use tags para separar VIPs, aniversariantes, convênios ou qualquer segmentação da clínica.",
+              "Depois você pode iniciar conversas no WhatsApp ou mover esse contato para o CRM.",
+            ]}
+            actions={[
+              { label: "Cadastrar primeiro cliente", onClick: handleNewContact },
+              { label: "Abrir CRM", href: "/company/crm", variant: "outline" },
+            ]}
+          />
+        ) : filteredContacts.length === 0 ? (
+          <GuidedEmptyState
+            icon={ClipboardList}
+            title="Nenhum cliente bate com os filtros"
+            description="Sua base já existe, mas esta combinação de busca e tag não encontrou resultados."
+            badge="Ajuste rápido"
+            steps={[
+              "Limpe a busca para revisar todos os clientes desta página.",
+              "Troque a tag selecionada para encontrar outro segmento.",
+              "Se for um cliente novo, cadastre agora para não perder o atendimento.",
+            ]}
+            actions={[
+              { label: "Limpar filtros", onClick: () => { setSearchQuery(""); setSelectedTag(""); } },
+              { label: "Novo cliente", onClick: handleNewContact, variant: "outline" },
+            ]}
+            compact
+          />
         ) : (
           <ContactsTable
             contacts={filteredContacts}
