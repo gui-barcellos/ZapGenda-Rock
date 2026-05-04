@@ -518,6 +518,7 @@ async function sendPostAttendedFollowups(supabaseClient: any) {
       .in('id', companyIds);
     const companyNameById = new Map((companyRows || []).map((c: any) => [c.id, c.name]));
     const companyPhoneById = new Map((companyRows || []).map((c: any) => [c.id, c.owner_whatsapp]));
+    const companySettingsById = await fetchCompanySettingsMap(supabaseClient, companyIds);
 
     for (const company of companies) {
       const timeZone = company.timezone || DEFAULT_TIMEZONE;
@@ -612,6 +613,7 @@ async function sendPostMissedFollowups(supabaseClient: any) {
       .in('id', companyIds);
     const companyNameById = new Map((companyRows || []).map((c: any) => [c.id, c.name]));
     const companyPhoneById = new Map((companyRows || []).map((c: any) => [c.id, c.owner_whatsapp]));
+    const companySettingsById = await fetchCompanySettingsMap(supabaseClient, companyIds);
 
     for (const company of companies) {
       const timeZone = company.timezone || DEFAULT_TIMEZONE;
